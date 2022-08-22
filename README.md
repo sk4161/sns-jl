@@ -1,4 +1,4 @@
-# sns-julia
+# sns-jl
 
 Spiking Network Simulation in Julia (originated from https://github.com/numericalbrainorg/snsbook/).
 
