@@ -8,9 +8,11 @@ const G_NA = 120.0              # mS / cm^2
 const E_NA = 115.0 + E_REST     # mV
 const G_K = 36.0                # mS / cm^2
 const E_K = -12.0 + E_REST      # mV
+const TAU_AHP = 200             # ms
+const G_AHP = 1400              # mS / cm^2
 
 const DT = 0.01                 # ms
-const T = parse(Int64, ARGS[1])
+const T = 1000
 const NT = T / DT               # 1000 ms / DT
 
 alpha_m(v) = (2.5 - 0.1 * (v - E_REST)) / (exp.(2.5 - 0.1 * (v - E_REST)) - 1.0)
@@ -30,15 +32,18 @@ tau_n(v) = 1.0 / (alpha_n(v) + beta_n(v))
 dmdt(v, m) = (1.0 / tau_m(v)) * (-m + m0(v))
 dhdt(v, h) = (1.0 / tau_h(v)) * (-h + h0(v))
 dndt(v, n) = (1.0 / tau_n(v)) * (-n + n0(v))
-dvdt(v, m, h, n, i_ext) = (-G_LEAK * (v - E_LEAK) - G_NA * m^3 * h * (v - E_NA) - G_K * n^4 * (v - E_K) + i_ext) / C
+dadt(s, a) = (1.0 / TAU_AHP) * (-a + s)
+dvdt(v, m, h, n, a, i_ext) = (-G_LEAK * (v - E_LEAK) - G_NA * m^3 * h * (v - E_NA) - G_K * n^4 * (v - E_K) - G_AHP * a * (v - E_K) + i_ext) / C
 
 function runge_kutta()
     v = E_REST
     m = m0(v)
     h = h0(v)
     n = n0(v)
+    a = 0.0
+    v_old = E_REST
 
-    i_ext = 9.0 # μA / cm^2
+    i_ext = 40.0 # μA / cm^2
 
     t_list = []
     v_list = []
@@ -49,39 +54,47 @@ function runge_kutta()
         push!(t_list, t)
         push!(v_list, v)
 
+        s = (v > 0.0 && v_old < 0.0)
+        v_old = v
+
         dmdt1 = dmdt(v, m)
         dhdt1 = dhdt(v, h)
         dndt1 = dndt(v, n)
-        dvdt1 = dvdt(v, m, h, n, i_ext)
+        dadt1 = dadt(s, a)
+        dvdt1 = dvdt(v, m, h, n, a, i_ext)
 
         dmdt2 = dmdt(v + 0.5 * DT * dvdt1, m + 0.5 * DT * dmdt1)
         dhdt2 = dhdt(v + 0.5 * DT * dvdt1, h + 0.5 * DT * dhdt1)
         dndt2 = dndt(v + 0.5 * DT * dvdt1, n + 0.5 * DT * dndt1)
-        dvdt2 = dvdt(v + 0.5 * DT * dvdt1, m + 0.5 * DT * dmdt1, h + 0.5 * DT * dhdt1, n + 0.5 * DT * dndt1, i_ext)
+        dadt2 = dadt(s,                    a + 0.5 * DT * dadt1)
+        dvdt2 = dvdt(v + 0.5 * DT * dvdt1, m + 0.5 * DT * dmdt1, h + 0.5 * DT * dhdt1, n + 0.5 * DT * dndt1, a + 0.5 * DT * dadt1, i_ext)
 
         dmdt3 = dmdt(v + 0.5 * DT * dvdt2, m + 0.5 * DT * dmdt2)
         dhdt3 = dhdt(v + 0.5 * DT * dvdt2, h + 0.5 * DT * dhdt2)
         dndt3 = dndt(v + 0.5 * DT * dvdt2, n + 0.5 * DT * dndt2)
-        dvdt3 = dvdt(v + 0.5 * DT * dvdt2, m + 0.5 * DT * dmdt2, h + 0.5 * DT * dhdt2, n + 0.5 * DT * dndt2, i_ext)
+        dadt3 = dadt(s,                    a + 0.5 * DT * dadt2)
+        dvdt3 = dvdt(v + 0.5 * DT * dvdt2, m + 0.5 * DT * dmdt2, h + 0.5 * DT * dhdt2, n + 0.5 * DT * dndt2, a + 0.5 * DT * dadt2, i_ext)
 
         dmdt4 = dmdt(v + DT * dvdt3, m + DT * dmdt3)
         dhdt4 = dhdt(v + DT * dvdt3, h + DT * dhdt3)
         dndt4 = dndt(v + DT * dvdt3, n + DT * dndt3)
-        dvdt4 = dvdt(v + DT * dvdt3, m + DT * dmdt3, h + DT * dhdt3, n + DT * dndt3, i_ext)
+        dadt4 = dadt(s,              a + DT * dadt3)
+        dvdt4 = dvdt(v + DT * dvdt3, m + DT * dmdt3, h + DT * dhdt3, n + DT * dndt3, a + DT * dadt3, i_ext)
 
         m += DT * (dmdt1 + 2 * dmdt2 + 2 * dmdt3 + dmdt4) / 6.0
         h += DT * (dhdt1 + 2 * dhdt2 + 2 * dhdt3 + dhdt4) / 6.0
         n += DT * (dndt1 + 2 * dndt2 + 2 * dndt3 + dndt4) / 6.0
+        a += DT * (dadt1 + 2 * dadt2 + 2 * dadt3 + dadt4) / 6.0
         v += DT * (dvdt1 + 2 * dvdt2 + 2 * dvdt3 + dvdt4) / 6.0
     end
 
-    title("HH model ($T ms)")
-    xlabel("Times [ms]")
-    ylabel("Membrane Potential [mV]")
-    xlim(0, T)
-    ylim(-80, 60)
+    suptitle("HH model (SFA)")
+    subplot(211, title="first 100 ms", xlim=(0, T/10), ylim=(-80, 60), xlabel="Times [ms]", ylabel="Membrane Potential [mV]")
     plot(t_list, v_list)
-    savefig("../../../fig/part1/hh/hh_$(T)_ms.png")
+    subplot(212, title="last 100 ms", xlim=(T - T/10, T), ylim=(-80, 60), xlabel="Times [ms]", ylabel="Membrane Potential [mV]")
+    plot(t_list, v_list)
+    tight_layout()
+    savefig("../../../fig/part1/hh/sfa.png")
 end
 
 runge_kutta()
