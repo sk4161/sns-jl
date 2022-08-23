@@ -9,15 +9,18 @@ const DT = 1.0                      # ms
 const T = parse(Int64, ARGS[1])     # ms
 const NT = T / DT        
 const I_EXT = 12.0                  # nA
+const T_REFR = 5.0                  # ms
+const NT_REFR = T_REFR / DT
 
 function euler()
-    v = V_REST;
+    v = V_REST
+    refr = 0
 
     t_list = []
     v_list = []
 
     for nt = 0:NT-1  
-        t = DT * nt;
+        t = DT * nt
 
         push!(t_list, t)
         push!(v_list, v)
@@ -32,7 +35,8 @@ function euler()
             push!(t_list, t + DT)
             push!(v_list, 0.0)
         end
-        v = s * V_RESET + (!s) * v;
+        refr = s * NT_REFR + (!s) * (refr - 1)
+        v = (refr > 0) ? V_RESET : v
     end
 
     title("LIF model ($T ms)")
@@ -41,7 +45,7 @@ function euler()
     xlim(0, T)
     ylim(-70, 0)
     plot(t_list, v_list)
-    savefig("../../../fig/part1/lif/lif_$(T)_ms.png")
+    savefig("../../../fig/part1/lif/lif_refr_$(T)_ms.png")
 end
 
 euler()
