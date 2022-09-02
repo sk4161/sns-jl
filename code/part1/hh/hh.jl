@@ -75,13 +75,14 @@ function runge_kutta()
         v += DT * (dvdt1 + 2 * dvdt2 + 2 * dvdt3 + dvdt4) / 6.0
     end
 
-    title("HH model ($T ms)")
-    xlabel("Times [ms]")
-    ylabel("Membrane Potential [mV]")
-    xlim(0, T)
-    ylim(-80, 60)
+    suptitle("HH model")
+    subplot(211, title="$(T/10) ms", xlim=(0, T/10), ylim=(-80, 60), xlabel="Times [ms]", ylabel="Membrane Potential [mV]")
     plot(t_list, v_list)
-    savefig("../../../fig/part1/hh/hh_$(T)_ms.png")
+    subplot(212, title="$(T) ms", xlim=(0, T), ylim=(-80, 60), xlabel="Times [ms]", ylabel="Membrane Potential [mV]")
+    plot(t_list, v_list)
+    tight_layout()
+
+    savefig("../../../fig/part1/hh/hh.png")
 end
 
 runge_kutta()

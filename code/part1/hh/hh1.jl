@@ -40,6 +40,9 @@ function runge_kutta()
 
     t_list = []
     v_list = []
+    m_list = []
+    h_list = []
+    n_list = []
 
     for nt = 0:NT-1
         t = DT * nt
@@ -48,6 +51,9 @@ function runge_kutta()
 
         push!(t_list, t)
         push!(v_list, v)
+        push!(m_list, m)
+        push!(h_list, h)
+        push!(n_list, n)
 
         dmdt1 = dmdt(v, m)
         dhdt1 = dhdt(v, h)
@@ -75,12 +81,17 @@ function runge_kutta()
         v += DT * (dvdt1 + 2 * dvdt2 + 2 * dvdt3 + dvdt4) / 6.0
     end
 
-    title("HH model (once)")
-    xlabel("Times [ms]")
-    ylabel("Membrane Potential [mV]")
-    xlim(0, T)
-    ylim(-80, 60)
+    suptitle("HH model")
+    subplot(221, title="V", xlim=(95, 125), ylim=(-80, 60), xlabel="Times [ms]", ylabel="V [mV]")
     plot(t_list, v_list)
+    subplot(222, title="m", xlim=(95, 125), xlabel="Times [ms]", ylabel="m")
+    plot(t_list, m_list)
+    subplot(223, title="h", xlim=(95, 125), xlabel="Times [ms]", ylabel="h")
+    plot(t_list, h_list)
+    subplot(224, title="n", xlim=(95, 125), xlabel="Times [ms]", ylabel="n")
+    plot(t_list, n_list)
+    tight_layout()
+
     savefig("../../../fig/part1/hh/hh_once.png")
 end
 
